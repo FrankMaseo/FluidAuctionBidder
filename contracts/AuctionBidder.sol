@@ -38,7 +38,10 @@ contract AuctionBidder {
 		uint256 currentPrice = getFluidPrice();
 		uint256 fluidClaim = getFluidClaim();
 
+		uint256 bidValue = currentPrice * fluidClaim;
+
 		//place bid
+		bid(bidValue);
 	}
 
 	//returns the price in ETH of a FLUID token
@@ -46,7 +49,14 @@ contract AuctionBidder {
 		return 2 finney; //0.002 ETH
 	}
 
-	function getFluidClaim()
+	function getFluidClaim() public returns (uint256 claim){
+		return 70000000000000000000;
+	}
+
+	function bid(uint256 _bidValue) private {
+		//bid
+	}
+
 	receive() external payable {
         topUp();
     }

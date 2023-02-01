@@ -15,8 +15,11 @@ contract AuctionBidder {
 	address immutable owner;
 	IAuctionHouse immutable auctionHouse;
 
+	IAuctionHouse.Auction public auction;
+
 	constructor() {
 		owner = msg.sender;
+		auctionHouse = IAuctionHouse(0xc290450311686f9b4d87b579da0b8b83c809517c)
 	}
 
 	function topUp() public payable{
@@ -33,29 +36,63 @@ contract AuctionBidder {
 		withdraw(address(this).balance);
 	}
 
-	function bidFloor() public{
-		//compute bid floor price
-		uint256 currentPrice = getFluidPrice();
-		uint256 fluidClaim = getFluidClaim();
-
-		uint256 bidValue = currentPrice * fluidClaim;
-
-		//place bid
-		bid(bidValue);
-	}
+	
 
 	//returns the price in ETH of a FLUID token
 	function getFluidPrice() public returns (uint256 price){
 		return 2 finney; //0.002 ETH
 	}
 
-	function getFluidClaim() public returns (uint256 claim){
+	function getFluidClaim(
+		uint256 FLUIDnftId
+	) public returns (
+		uint256 claim
+	){
 		return 70000000000000000000;
 	}
 
-	function bid(uint256 _bidValue) private {
-		//bid
+	function checkUpkeep() public{
+		//checkUpkeep returns true if
+		// 1. auction is expired and needs to be settled
+		// 2. Or new auction has been created and current bid price is lower than reserve price
+		
 	}
+
+	function performUpkeep() public {
+		IAuctionHouse.Auction memory _auction = auctionHouse.auction;
+		if(
+			_auction.startTime != 0
+			&& !_auction.settled
+			&& block.timestamp >= _auction.endTime
+		){
+			settleCurrent();
+		}
+
+		bidFloor();
+	}
+
+	function bidFloor() public{
+		//compute bid floor price
+		uint256 fluidClaim = getFluidClaim(_auction.FLUIDnftId);
+		uint256 currentFluidPrice = getFluidPrice();
+
+		uint256 bidValue = currentPrice * fluidClaim;
+
+		//place bid
+		auctionHouse.createBid.value(bidValue)(payId);
+	}
+
+		
+
+		auctionHouse.
+	function settleCurrent() private {
+		auctionHouse.settleCurrentAndCreateNewAuction();
+	}
+	//as a reminder
+	function getCurrentAuction() public{
+		return auctionHouse.auction;
+	}
+
 
 	receive() external payable {
         topUp();

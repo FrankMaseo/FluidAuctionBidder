@@ -44,12 +44,10 @@ contract AuctionBidder {
 		price = 2 * 10 ** 15 ; //hardcoded to 0.002 ETH
 	}
 
-	function getFluidClaim(
-		uint256 FLUIDnftId
-	) public returns (
+	function getFluidClaim() public returns (
 		uint256 claim
 	){
-		return 10;
+		return auctionHouse.rewardAmount(); //returns the current reward amount with a 18 decimals
 	}
 
 	function checkUpkeep() public{
@@ -60,8 +58,6 @@ contract AuctionBidder {
 	}
 
 	function performUpkeep() public {
-		//IAuctionHouse.Auction memory _auction = auctionHouse.auction();
-
 		(
 			uint256 _FLUIDnftId,
 			uint256 _amount,
@@ -93,7 +89,7 @@ contract AuctionBidder {
 
 	function bidFloor(uint256 FLUIDnftId, uint256 currentBid) private{
 		//compute bid floor price
-		uint256 fluidClaim = getFluidClaim(FLUIDnftId);
+		uint256 fluidClaim = getFluidClaim();
 		uint256 currentFluidPrice = getFluidPrice();
 		uint256 bidValue = currentFluidPrice * fluidClaim;
 		//place bid

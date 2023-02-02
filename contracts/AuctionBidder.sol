@@ -1,46 +1,47 @@
 // SPDX-License-Identifier: GNU General Public License v3.0
-pragma solidity 0.8.6;
+pragma solidity ^0.8.12;
 
 //import fluid auction interface
-import "@FLUIDDAO/fluid-dao-nft/contracts/interfaces/IAuctionHouse.sol";
+import "fluiddao/contracts/interfaces/IAuctionHouse.sol";
+import "fluiddao/contracts/AuctionHouse.sol";
 
 //ERC721 receiver
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
-//Fluid price feed from sushi pool
-
-
 contract AuctionBidder {
 	
 	address immutable owner;
-	IAuctionHouse immutable auctionHouse;
+	AuctionHouse immutable auctionHouse;
 
-	IAuctionHouse.Auction public auction;
-
-	constructor() {
+	constructor(address auctionHouseAddress) {
 		owner = msg.sender;
-		auctionHouse = IAuctionHouse(0xc290450311686f9b4d87b579da0b8b83c809517c)
+		auctionHouse = AuctionHouse(auctionHouseAddress);
 	}
 
+	function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+        return IERC721Receiver.onERC721Received.selector;
+    }
+	/*
 	function topUp() public payable{
 		
 	}
-
-	function withdraw(uint256 _amount) public {
+	*/
+	
+	function withdraw(uint256 _amount, address payable recipient) public {
 		require(msg.sender == owner, "Not the owner");
 		require(address(this).balance >= _amount, "Not enough funds");
-		owner.transfer(_amount);
+		recipient.transfer(_amount);
 	}
 
-	function withdrawAll() public {
-		withdraw(address(this).balance);
+	function withdrawAll(address payable recipient) public {
+		withdraw(address(this).balance, recipient);
 	}
 
 	
 
 	//returns the price in ETH of a FLUID token
 	function getFluidPrice() public returns (uint256 price){
-		return 2 finney; //0.002 ETH
+		price = 2 * 10 ** 15 ; //hardcoded to 0.002 ETH
 	}
 
 	function getFluidClaim(
@@ -48,7 +49,7 @@ contract AuctionBidder {
 	) public returns (
 		uint256 claim
 	){
-		return 70000000000000000000;
+		return 10;
 	}
 
 	function checkUpkeep() public{
@@ -59,43 +60,62 @@ contract AuctionBidder {
 	}
 
 	function performUpkeep() public {
-		IAuctionHouse.Auction memory _auction = auctionHouse.auction;
+		//IAuctionHouse.Auction memory _auction = auctionHouse.auction();
+
+		(
+			uint256 _FLUIDnftId,
+			uint256 _amount,
+			uint256 _startTime,
+			uint256 _endTime,
+			address payable _bidder,
+			bool _settled
+		) = auctionHouse.auction();
+		
 		if(
-			_auction.startTime != 0
-			&& !_auction.settled
-			&& block.timestamp >= _auction.endTime
+			_startTime != 0
+			&& !_settled
+			&& block.timestamp >= _endTime
 		){
 			settleCurrent();
+			//update auction parameters after settling and creating new
+			(
+				_FLUIDnftId,
+				_amount,
+				_startTime,
+				_endTime,
+				_bidder,
+				_settled
+			) = auctionHouse.auction();
 		}
 
-		bidFloor();
+		bidFloor(_FLUIDnftId, _amount);
 	}
 
-	function bidFloor() public{
+	function bidFloor(uint256 FLUIDnftId, uint256 currentBid) private{
 		//compute bid floor price
-		uint256 fluidClaim = getFluidClaim(_auction.FLUIDnftId);
+		uint256 fluidClaim = getFluidClaim(FLUIDnftId);
 		uint256 currentFluidPrice = getFluidPrice();
-
-		uint256 bidValue = currentPrice * fluidClaim;
-
+		uint256 bidValue = currentFluidPrice * fluidClaim;
 		//place bid
-		auctionHouse.createBid.value(bidValue)(payId);
+
+		//need to check if (1) possible to bid lower than current highest and (2) possible to remove bid
+		//To prevent the program from not bidding because current bid is higher -> current bid gets removed -> malicious user profits
+		require(currentBid < bidValue, "revert: bid already higher than reserve price");
+		auctionHouse.createBid{value: bidValue}(FLUIDnftId);
 	}
 
-		
-
-		auctionHouse.
 	function settleCurrent() private {
 		auctionHouse.settleCurrentAndCreateNewAuction();
 	}
-	//as a reminder
+	
+	
+	/*as a reminder
 	function getCurrentAuction() public{
-		return auctionHouse.auction;
-	}
+		return auctionHouse.auction();
+	}*/
 
 
 	receive() external payable {
-        topUp();
     }
 
 }

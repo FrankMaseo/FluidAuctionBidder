@@ -40,17 +40,17 @@ contract AuctionBidder {
 	
 
 	//returns the price in ETH of a FLUID token
-	function getFluidPrice() public returns (uint256 price){
+	function getFluidPrice() public view returns (uint256 price){
 		price = 2 * 10 ** 15 ; //hardcoded to 0.002 ETH
 	}
 
-	function getFluidClaim() public returns (
+	function getFluidClaim() public view returns (
 		uint256 claim
 	){
-		return auctionHouse.rewardAmount(); //returns the current reward amount with a 18 decimals
+		claim = auctionHouse.rewardAmount(); //returns the current reward amount with a 18 decimals
 	}
 
-	function checkUpkeep() public{
+	function checkUpkeep() public view {
 		//checkUpkeep returns true if
 		// 1. auction is expired and needs to be settled
 		// 2. Or new auction has been created and current bid price is lower than reserve price

@@ -17,6 +17,7 @@ contract AuctionBidder {
 	address immutable WETH2;
 	address immutable FLUID;
 	address immutable sushiPool;
+	address immutable treasury; 
 
 	///goerli sushiSwap pair address 0xd33c0bf246902ff4C87FA52C32F01aB0126Fda15
 	constructor(
@@ -27,6 +28,7 @@ contract AuctionBidder {
 		sushiPool = address(0xd33c0bf246902ff4C87FA52C32F01aB0126Fda15);
 		WETH2 = address(0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6);
 		FLUID = address(0xBa01a0552C37036168b120165599193042c93B0E);
+		treasury = address(0xc4339bE0780a5922007919d19d39Cc02234d68Bf);
 	}
 
 	function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
@@ -48,8 +50,6 @@ contract AuctionBidder {
 		withdraw(address(this).balance, recipient);
 	}
 
-	
-
 	//returns the price in ETH of a FLUID token
 	function getSushiPoolBalances() 
 	public 
@@ -66,13 +66,6 @@ contract AuctionBidder {
 		uint256 claim
 	){
 		claim = auctionHouse.rewardAmount(); //returns the current reward amount with a 18 decimals
-	}
-
-	function checkUpkeep() public view {
-		//checkUpkeep returns true if
-		// 1. auction is expired and needs to be settled
-		// 2. Or new auction has been created and current bid price is lower than reserve price
-		
 	}
 
 	function performUpkeep() public {
@@ -113,25 +106,26 @@ contract AuctionBidder {
 			uint256 currentSushiReservesWeth
 		) = getSushiPoolBalances();
 
+		//Need to SafeMath this to avoid overflow issues
 		uint256 bidValue = currentSushiReservesFluid * fluidClaim / currentSushiReservesWeth;
 
-		//need to check if (1) possible to bid lower than current highest and (2) possible to remove bid
-		//To prevent the program from not bidding because current bid is higher -> current bid gets removed -> malicious user profits
 		require(currentBid < bidValue, "revert: bid already higher than reserve price");
+		require(address(this).balance > bidValue, "revert: not enough ETH in the contract");
 		auctionHouse.createBid{value: bidValue}(FLUIDnftId);
 	}
 
 	function settleCurrent() private {
 		auctionHouse.settleCurrentAndCreateNewAuction();
 	}
-	
-	
-	/*as a reminder
-	function getCurrentAuction() public{
-		return auctionHouse.auction();
-	}*/
 
+	function withdrawToTreasury() public {
+		//Send the on-hand $FLUID balance + Fluid-ids to the treasury address
+		uint256 fluidBalance = IERC20(FLUID).balanceOf(address(this));
+		IERC20(FLUID).transfer(treasury, fluidBalance);
 
+		//add the Fluid IDs
+	}
+	
 	receive() external payable {
     }
 

@@ -14,21 +14,25 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract AuctionBidder is ReentrancyGuard, Ownable {
 	
-	AuctionHouse immutable auctionHouse;
 	address immutable WETH2;
 	address immutable FLUID;
 	address immutable sushiPool;
 	address immutable treasury; 
 
-	///goerli sushiSwap pair address 0xd33c0bf246902ff4C87FA52C32F01aB0126Fda15
+	AuctionHouse immutable auctionHouse;
+
 	constructor(
-		address auctionHouseAddress
+		address auctionHouseAddress,
+		address sushiPoolAddress,
+		address WETH2Address,
+		address FLUIDTokenAddress,
+		address DAOTreasury
 	) {
 		auctionHouse = AuctionHouse(auctionHouseAddress);
-		sushiPool = address(0xd33c0bf246902ff4C87FA52C32F01aB0126Fda15);
-		WETH2 = address(0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6);
-		FLUID = address(0xBa01a0552C37036168b120165599193042c93B0E);
-		treasury = address(0xc4339bE0780a5922007919d19d39Cc02234d68Bf);
+		sushiPool = sushiPoolAddress;
+		WETH2 = WETH2Address;
+		FLUID = FLUIDTokenAddress;
+		treasury = DAOTreasury;
 	}
 
 	function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {

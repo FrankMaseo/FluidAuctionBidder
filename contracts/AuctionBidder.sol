@@ -9,10 +9,11 @@ import "fluiddao/contracts/AuctionHouse.sol";
 //ERC721 receiver
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract AuctionBidder {
+contract AuctionBidder is ReentrancyGuard, Ownable {
 	
-	address immutable owner;
 	AuctionHouse immutable auctionHouse;
 	address immutable WETH2;
 	address immutable FLUID;
@@ -23,7 +24,6 @@ contract AuctionBidder {
 	constructor(
 		address auctionHouseAddress
 	) {
-		owner = msg.sender;
 		auctionHouse = AuctionHouse(auctionHouseAddress);
 		sushiPool = address(0xd33c0bf246902ff4C87FA52C32F01aB0126Fda15);
 		WETH2 = address(0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6);
@@ -40,13 +40,17 @@ contract AuctionBidder {
 	}
 	*/
 	
-	function withdraw(uint256 _amount, address payable recipient) public {
-		require(msg.sender == owner, "Not the owner");
+	function withdrawToTreasury(
+		uint256 _amount,
+		address payable recipient
+	) public 
+	onlyOwner {
 		require(address(this).balance >= _amount, "Not enough funds");
+		require(recipient==treasury, "Not the treasury");
 		recipient.transfer(_amount);
 	}
 
-	function withdrawAll(address payable recipient) public {
+	function withdrawAll(address payable recipient) public onlyOwner{
 		withdraw(address(this).balance, recipient);
 	}
 
@@ -62,19 +66,24 @@ contract AuctionBidder {
 		currentSushiReservesWeth = IERC20(WETH2).balanceOf(sushiPool);
 	}
 
-	function getFluidClaim() public view returns (
+	function getFluidClaim() 
+	public 
+	view 
+	returns (
 		uint256 claim
 	){
-		claim = auctionHouse.rewardAmount(); //returns the current reward amount with a 18 decimals
+		claim = auctionHouse.rewardAmount(); //returns the current reward amount with 18 decimals
 	}
 
-	function performUpkeep() public {
+	//To be called by keepers every 12h to settle current auction (if not done) and place reserve bid
+	function performUpkeep() 
+	public 
+	nonReentrant {
 		(
 			uint256 _FLUIDnftId,
 			uint256 _amount,
 			uint256 _startTime,
-			uint256 _endTime,
-			address payable _bidder,
+			uint256 _endTime, ,
 			bool _settled
 		) = auctionHouse.auction();
 		
@@ -89,8 +98,7 @@ contract AuctionBidder {
 				_FLUIDnftId,
 				_amount,
 				_startTime,
-				_endTime,
-				_bidder,
+				_endTime, ,
 				_settled
 			) = auctionHouse.auction();
 		}
@@ -98,7 +106,10 @@ contract AuctionBidder {
 		bidFloor(_FLUIDnftId, _amount);
 	}
 
-	function bidFloor(uint256 FLUIDnftId, uint256 currentBid) private{
+	function bidFloor(
+		uint256 FLUIDnftId,
+		uint256 currentBid
+	) private {
 		//compute bid floor price
 		uint256 fluidClaim = getFluidClaim();
 		(
@@ -109,16 +120,18 @@ contract AuctionBidder {
 		//Need to SafeMath this to avoid overflow issues
 		uint256 bidValue = currentSushiReservesFluid * fluidClaim / currentSushiReservesWeth;
 
-		require(currentBid < bidValue, "revert: bid already higher than reserve price");
+		require(currentBid < bidValue, "revert: current bid already higher than reserve price");
 		require(address(this).balance > bidValue, "revert: not enough ETH in the contract");
+
 		auctionHouse.createBid{value: bidValue}(FLUIDnftId);
 	}
 
-	function settleCurrent() private {
+	function settleCurrent() 
+	private {
 		auctionHouse.settleCurrentAndCreateNewAuction();
 	}
 
-	function withdrawToTreasury() public {
+	function withdrawToTreasury() public onlyOwner {
 		//Send the on-hand $FLUID balance + Fluid-ids to the treasury address
 		uint256 fluidBalance = IERC20(FLUID).balanceOf(address(this));
 		IERC20(FLUID).transfer(treasury, fluidBalance);

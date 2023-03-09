@@ -16,9 +16,10 @@ contract AuctionBidder is ReentrancyGuard, Ownable {
 	
 	address immutable WETH2;
 	address immutable FLUID;
+	address immutable FLUIDNFT;
 	address immutable sushiPool;
 	address immutable treasury; 
-
+	
 	AuctionHouse immutable auctionHouse;
 
 	constructor(
@@ -26,16 +27,27 @@ contract AuctionBidder is ReentrancyGuard, Ownable {
 		address sushiPoolAddress,
 		address WETH2Address,
 		address FLUIDTokenAddress,
+		address FLUIDNFTTokenAddress,
 		address DAOTreasury
 	) {
 		auctionHouse = AuctionHouse(auctionHouseAddress);
 		sushiPool = sushiPoolAddress;
 		WETH2 = WETH2Address;
 		FLUID = FLUIDTokenAddress;
+		FLUIDNFT = FLUIDNFTTokenAddress;
 		treasury = DAOTreasury;
 	}
 
-	function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+	function onERC721Received(address operator, address from, uint256, bytes calldata) external pure returns (bytes4) {
+		/*
+		NEED TO FINALIZE TOKEN FORWARD UPON RECEIPT
+		//require from = zeroAddress ==> only freshly minted tokens
+		require(from == 0x0000000000000000000000000000000000000000, "Unsupported sender");
+		//require operator = FluidNFTContract ==> only coming from the Fluid collection
+		require(operator == FLUIDNFT, "Unsupported ERC721");
+		//send token to treasury
+		IERC721(FLUIDNFT).transferFrom(from, treasury, tokenId);
+		*/
         return IERC721Receiver.onERC721Received.selector;
     }
 	/*
@@ -130,8 +142,7 @@ contract AuctionBidder is ReentrancyGuard, Ownable {
 		auctionHouse.createBid{value: bidValue}(FLUIDnftId);
 	}
 
-	function settleCurrent() 
-	private {
+	function settleCurrent() private {
 		auctionHouse.settleCurrentAndCreateNewAuction();
 	}
 
@@ -139,11 +150,8 @@ contract AuctionBidder is ReentrancyGuard, Ownable {
 		//Send the on-hand $FLUID balance + Fluid-ids to the treasury address
 		uint256 fluidBalance = IERC20(FLUID).balanceOf(address(this));
 		IERC20(FLUID).transfer(treasury, fluidBalance);
-
-		//add the Fluid IDs
 	}
 	
 	receive() external payable {
     }
-
 }
